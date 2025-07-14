@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS Tracker [Diagnóstico]</title>
+    <title>GPS Tracker [Diagnóstico v2]</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-eCaCGRE6XYWvgqn5NDlnAaG4nCnFagmMaKHdT+YQkLQ=" crossorigin=""/>
 
@@ -72,42 +72,39 @@
         const imageUrl = 'https://raw.githubusercontent.com/Contranada/ContraNav/main/1841.png';
         const imageBounds = [[-26.8667, -48.7000], [-26.9500, -48.5500]];
         
-        // **NOVO: Camada de mapa base (OpenStreetMap)**
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         });
 
-        // **NOVO: Camada da sua imagem com opacidade para ver por baixo**
         const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, {
-            opacity: 0.7, // Ajuste a opacidade conforme necessário
+            opacity: 0.7,
             interactive: true
+        }).on('error', function () {
+            // **NOVO: Detector de erro no carregamento da imagem**
+            console.error("ERRO: Não foi possível carregar a imagem da carta náutica. Verifique a URL e se o repositório é público.");
+            alert("ERRO: Não foi possível carregar a imagem da carta náutica. Verifique a URL.");
         });
 
+        // **CORRIGIDO: O mapa agora inicia apenas com o mapa de ruas**
         const map = L.map('map', {
-            center: [-26.908, -48.625], // Centro aproximado dos seus bounds
-            zoom: 13,
-            layers: [osmLayer, cartaNauticaLayer] // Inicia com as duas camadas ativas
+            layers: [osmLayer] // Inicia apenas com a camada OSM
         });
+        
+        // **CORRIGIDO: Foco e zoom corretos para a área da sua imagem**
+        map.fitBounds(imageBounds);
 
-        // **NOVO: Definição das camadas para o controle**
-        const baseMaps = {
-            "Mapa de Ruas": osmLayer
-        };
-        const overlayMaps = {
-            "Carta Náutica (sua imagem)": cartaNauticaLayer
-        };
-
-        // **NOVO: Adiciona o controle de camadas no canto superior direito**
+        const baseMaps = { "Mapa de Ruas": osmLayer };
+        const overlayMaps = { "Carta Náutica (sua imagem)": cartaNauticaLayer };
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // Camadas dinâmicas
+        // Camadas dinâmicas (marcadores, vetores, etc.)
         let pontoMedioLayer = null, vetorVelocidadeLayer = null, circuloRaio1Layer = null, circuloRaio2Layer = null;
 
         raio1Slider.addEventListener('input', (e) => { raio1 = parseInt(e.target.value); raio1ValueEl.textContent = `${raio1} m`; });
         raio2Slider.addEventListener('input', (e) => { raio2 = parseInt(e.target.value); raio2ValueEl.textContent = `${raio2} m`; });
 
-        // --- LÓGICA PRINCIPAL ---
         function processarPosicao(posicao) {
+            // ... (A lógica de processamento aqui dentro não precisa de alterações) ...
             statusEl.textContent = `GPS Ativo. Precisão: ${posicao.coords.accuracy.toFixed(0)}m`;
             statusEl.style.backgroundColor = '#018786';
             const { latitude, longitude } = posicao.coords;
@@ -118,13 +115,10 @@
             const pontosAntigos = historicoPontos.filter(p => (timestamp - p.timestamp) >= 9000 && (timestamp - p.timestamp) <= 11000);
             const mediaRecente = calcularMediaLatLon(pontosRecentes);
             const mediaAntiga = calcularMediaLatLon(pontosAntigos);
-            
-            // Limpa camadas antigas
             if(pontoMedioLayer) map.removeLayer(pontoMedioLayer);
             if(vetorVelocidadeLayer) map.removeLayer(vetorVelocidadeLayer);
             if(circuloRaio1Layer) map.removeLayer(circuloRaio1Layer);
             if(circuloRaio2Layer) map.removeLayer(circuloRaio2Layer);
-
             if (mediaRecente) {
                 mediaRecenteEl.textContent = `${mediaRecente.lat.toFixed(5)}, ${mediaRecente.lon.toFixed(5)}`;
                 pontoMedioLayer = L.marker([mediaRecente.lat, mediaRecente.lon]).addTo(map);
@@ -137,15 +131,12 @@
                     const direcaoGraus = calcularDirecao(mediaAntiga, mediaRecente);
                     velocidadeEl.textContent = `${velocidadeKnots.toFixed(1)} kn`;
                     direcaoEl.textContent = `${direcaoGraus.toFixed(0)}°`;
-                    // **NOVO: Proteção para não desenhar vetores absurdos**
                     if (velocidadeKnots < 50 && velocidadeKnots > 0.1) {
                         const distancia30s = (distanciaMetros / 9) * 30;
                         const pontoFinalVetor = calcularPontoDestino(mediaRecente.lat, mediaRecente.lon, distancia30s, direcaoGraus);
                         vetorVelocidadeLayer = L.polyline([[mediaRecente.lat, mediaRecente.lon],[pontoFinalVetor.latitude, pontoFinalVetor.longitude]], { color: '#FF4500', weight: 3, dashArray: '5, 5' }).addTo(map);
                     }
-                } else {
-                    mediaAntigaEl.textContent = "--"; velocidadeEl.textContent = "--"; direcaoEl.textContent = "--";
-                }
+                } else { mediaAntigaEl.textContent = "--"; velocidadeEl.textContent = "--"; direcaoEl.textContent = "--"; }
             } else { mediaRecenteEl.textContent = "--"; }
         }
 
