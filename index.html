@@ -4,36 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>GPS Tracker em Carta Náutica</title>
-    
+
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-eCaCGRE6XYWvgqn5NDlnAaG4nCnFagmMaKHdT+YQkLQ=" crossorigin=""/>
-    
+
     <style>
         html, body {
             height: 100%;
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column; /* Layout vertical */
         }
-        #map {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-        }
+
         .info-panel {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background-color: rgba(30, 30, 30, 0.9);
+            background-color: #1e1e1e;
             padding: 10px 15px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
             z-index: 1000;
             color: #e0e0e0;
-            border-top: 1px solid #444;
+            border-bottom: 1px solid #444;
         }
+
+        #map {
+            flex-grow: 1; /* O mapa ocupa o espaço restante */
+            background-color: #333;
+            z-index: 0;
+        }
+
         .data-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -75,14 +74,12 @@
             gap: 10px;
             margin-bottom: 5px;
         }
-        input[type="range"] {
+        input:type="range" {
             flex-grow: 1;
         }
     </style>
 </head>
 <body>
-
-    <div id="map"></div>
 
     <div class="info-panel">
         <div id="status">Aguardando permissão e sinal de GPS...</div>
@@ -118,6 +115,8 @@
         </div>
     </div>
 
+    <div id="map"></div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <script>
@@ -139,8 +138,7 @@
         let raio2 = 100;
 
         // --- CONFIGURAÇÃO DO MAPA ---
-        // URL da imagem ajustada com seu usuário e repositório
-        const imageUrl = 'https://raw.githubusercontent.com/Contranada/ContraNav/main/1841.png';
+        const imageUrl = 'https://raw.githubusercontent.com/Contanada/ContraNav/main/1841.png';
         const imageBounds = [[-26.8667, -48.7000], [-26.9500, -48.5500]];
         const map = L.map('map', { zoomControl: false });
         L.imageOverlay(imageUrl, imageBounds).addTo(map);
@@ -148,7 +146,7 @@
 
         // Camadas dinâmicas
         let pontoMedioLayer = null, vetorVelocidadeLayer = null, circuloRaio1Layer = null, circuloRaio2Layer = null;
-        
+
         // --- CONTROLES DOS SLIDERS ---
         raio1Slider.addEventListener('input', (e) => { raio1 = parseInt(e.target.value); raio1ValueEl.textContent = `${raio1} m`; });
         raio2Slider.addEventListener('input', (e) => { raio2 = parseInt(e.target.value); raio2ValueEl.textContent = `${raio2} m`; });
