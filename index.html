@@ -3,98 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS Tracker em Tempo Real</title>
+    <title>GPS Tracker em Carta Náutica</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-eCaCGRE6XYWvgqn5NDlnAaG4nCnFagmMaKHdT+YQkLQ=" crossorigin=""/>
+    
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            padding: 15px;
+            padding: 0;
             background-color: #121212;
             color: #e0e0e0;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            flex-direction: column;
+            height: 100vh;
         }
-        .container {
+        #map {
+            flex-grow: 1; /* O mapa ocupa o espaço restante */
+            background-color: #333; /* Cor de fundo enquanto o mapa carrega */
+        }
+        .info-panel {
             background-color: #1e1e1e;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            width: 100%;
-            max-width: 600px;
+            padding: 10px 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+            z-index: 1000;
         }
-        h1 {
-            color: #bb86fc;
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        h2 {
-            border-bottom: 2px solid #03dac6;
-            padding-bottom: 8px;
-            color: #03dac6;
-            font-size: 1.2em;
+        .data-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
         }
         .data-point {
-            margin-bottom: 20px;
+            background-color: #2c2c2c;
+            padding: 8px;
+            border-radius: 6px;
         }
         .label {
             font-weight: bold;
-            color: #cfcfcf;
+            color: #03dac6;
+            font-size: 0.8em;
+            display: block;
         }
         .value {
             font-family: 'Courier New', Courier, monospace;
-            background-color: #333;
-            padding: 5px 8px;
-            border-radius: 4px;
-            font-size: 1.1em;
             color: #fff;
-            display: inline-block;
-            margin-top: 5px;
+            font-size: 1em;
         }
         #status {
             text-align: center;
-            padding: 10px;
+            padding: 8px;
             background-color: #3700b3;
             color: white;
-            border-radius: 5px;
-            margin-bottom: 20px;
             font-weight: bold;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        .slider-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            flex-grow: 1;
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Análise de Navegação</h1>
+<div id="map"></div>
+
+<div class="info-panel">
     <div id="status">Aguardando permissão e sinal de GPS...</div>
-
-    <div class="data-point">
-        <h2>Média dos Últimos 3 Segundos</h2>
-        <span class="label">LAT/LONG Média:</span>
-        <span id="media_recente" class="value">--</span>
-    </div>
-
-    <div class="data-point">
-        <h2>Média de 9 a 11 Segundos Atrás</h2>
-        <span class="label">LAT/LONG Média:</span>
-        <span id="media_antiga" class="value">--</span>
-    </div>
-
-    <hr style="border-color: #444;">
-
-    <div class="data-point">
-        <h2>Resultados Calculados</h2>
-        <p>
-            <span class="label">Velocidade Média:</span>
+    <div class="data-grid">
+        <div class="data-point">
+            <span class="label">Média Recente (3s)</span>
+            <span id="media_recente" class="value">--</span>
+        </div>
+        <div class="data-point">
+            <span class="label">Média Antiga (9-11s)</span>
+            <span id="media_antiga" class="value">--</span>
+        </div>
+        <div class="data-point">
+            <span class="label">Velocidade Média</span>
             <span id="velocidade" class="value">--</span>
-        </p>
-        <p>
-            <span class="label">Direção Média (Graus Verdadeiros):</span>
+        </div>
+        <div class="data-point">
+            <span class="label">Direção Média</span>
             <span id="direcao" class="value">--</span>
-        </p>
+        </div>
+    </div>
+    <div class="controls">
+        <div class="slider-control">
+            <label for="raio1" class="label">Raio 1:</label>
+            <input type="range" id="raio1" min="10" max="200" value="50">
+            <span id="raio1-value" class="value">50 m</span>
+        </div>
+        <div class="slider-control">
+            <label for="raio2" class="label">Raio 2:</label>
+            <input type="range" id="raio2" min="10" max="200" value="100">
+            <span id="raio2-value" class="value">100 m</span>
+        </div>
     </div>
 </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
 <script>
     // --- ELEMENTOS DO DOM ---
@@ -103,43 +119,66 @@
     const mediaAntigaEl = document.getElementById('media_antiga');
     const velocidadeEl = document.getElementById('velocidade');
     const direcaoEl = document.getElementById('direcao');
+    const raio1Slider = document.getElementById('raio1');
+    const raio2Slider = document.getElementById('raio2');
+    const raio1ValueEl = document.getElementById('raio1-value');
+    const raio2ValueEl = document.getElementById('raio2-value');
 
     // --- ARMAZENAMENTO E CONFIGURAÇÕES ---
     let historicoPontos = [];
     const TEMPO_MAX_HISTORICO = 15000; // Manter apenas 15 segundos de dados
+    let raio1 = 50;
+    let raio2 = 100;
+
+    // --- CONFIGURAÇÃO DO MAPA ---
+    // !!! IMPORTANTE: SUBSTITUA PELA URL REAL DA SUA IMAGEM NO GITHUB !!!
+    // Veja as instruções "Como Usar" para obter esta URL.
+    const imageUrl = 'https://raw.githubusercontent.com/SEU-USUARIO/SEU-REPOSITORIO/main/1841.png'; 
+    const imageBounds = [[-26.8667, -48.7000], [-26.9500, -48.5500]];
+
+    const map = L.map('map', {
+        crs: L.CRS.EPSG3857 // Sistema de coordenadas padrão da web
+    });
+
+    // Adiciona a sua imagem como uma camada sobre o mapa
+    L.imageOverlay(imageUrl, imageBounds).addTo(map);
+
+    // Adiciona uma camada de mapa de ruas (opcional, para contexto)
+    // L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    // Ajusta a visão do mapa para os limites da imagem
+    map.fitBounds(imageBounds);
+
+    // Camadas dinâmicas do mapa
+    let pontoMedioLayer = null;
+    let vetorVelocidadeLayer = null;
+    let circuloRaio1Layer = null;
+    let circuloRaio2Layer = null;
+    
+    // --- CONTROLES DOS SLIDERS ---
+    raio1Slider.addEventListener('input', (e) => {
+        raio1 = parseInt(e.target.value);
+        raio1ValueEl.textContent = `${raio1} m`;
+    });
+    raio2Slider.addEventListener('input', (e) => {
+        raio2 = parseInt(e.target.value);
+        raio2ValueEl.textContent = `${raio2} m`;
+    });
 
     // --- FUNÇÕES DE CÁLCULO (sem alterações) ---
-    function calcularMediaLatLon(pontos) {
-        if (pontos.length === 0) return null;
-        const soma = pontos.reduce((acc, p) => ({ lat: acc.lat + p.lat, lon: acc.lon + p.lon }), { lat: 0, lon: 0 });
-        return { lat: soma.lat / pontos.length, lon: soma.lon / pontos.length };
+    function calcularMediaLatLon(pontos) { /* ...código da resposta anterior... */ }
+    function haversine(ponto1, ponto2) { /* ...código da resposta anterior... */ }
+    function calcularDirecao(pontoInicial, pontoFinal) { /* ...código da resposta anterior... */ }
+    function calcularPontoDestino(lat, lon, dist, brng) {
+        const R = 6371e3; const d = dist; const lat1 = lat * Math.PI / 180; const lon1 = lon * Math.PI / 180; const brngRad = brng * Math.PI / 180;
+        const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d / R) + Math.cos(lat1) * Math.sin(d / R) * Math.cos(brngRad));
+        const lon2 = lon1 + Math.atan2(Math.sin(brngRad) * Math.sin(d / R) * Math.cos(lat1), Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2));
+        return { latitude: lat2 * 180 / Math.PI, longitude: lon2 * 180 / Math.PI };
     }
+    // Cole as funções completas da resposta anterior aqui para economizar espaço
+    // (O código completo está incluído no bloco final para cópia fácil)
 
-    function haversine(ponto1, ponto2) {
-        const R = 6371e3;
-        const toRadians = (deg) => deg * (Math.PI / 180);
-        const dLat = toRadians(ponto2.lat - ponto1.lat);
-        const dLon = toRadians(ponto2.lon - ponto1.lon);
-        const lat1 = toRadians(ponto1.lat);
-        const lat2 = toRadians(ponto2.lat);
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-    }
 
-    function calcularDirecao(pontoInicial, pontoFinal) {
-        const toRadians = (deg) => deg * (Math.PI / 180);
-        const toDegrees = (rad) => rad * (180 / Math.PI);
-        const lat1 = toRadians(pontoInicial.lat);
-        const lon1 = toRadians(pontoInicial.lon);
-        const lat2 = toRadians(pontoFinal.lat);
-        const lon2 = toRadians(pontoFinal.lon);
-        const dLon = lon2 - lon1;
-        const y = Math.sin(dLon) * Math.cos(lat2);
-        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-        return (toDegrees(Math.atan2(y, x)) + 360) % 360;
-    }
-    
     // --- LÓGICA PRINCIPAL COM GEOLOCATION API ---
     function processarPosicao(posicao) {
         statusEl.textContent = "GPS Ativo. Calculando...";
@@ -148,79 +187,77 @@
         const { latitude, longitude } = posicao.coords;
         const timestamp = Date.now();
         
-        // Adiciona o novo ponto e remove os antigos
         historicoPontos.push({ lat: latitude, lon: longitude, timestamp: timestamp });
         historicoPontos = historicoPontos.filter(p => timestamp - p.timestamp < TEMPO_MAX_HISTORICO);
 
-        // Filtra os pontos para os dois períodos de tempo
         const pontosRecentes = historicoPontos.filter(p => timestamp - p.timestamp <= 3000);
-        const pontosAntigos = historicoPontos.filter(p => {
-            const tempoAtras = timestamp - p.timestamp;
-            return tempoAtras >= 9000 && tempoAtras <= 11000;
-        });
+        const pontosAntigos = historicoPontos.filter(p => (timestamp - p.timestamp) >= 9000 && (timestamp - p.timestamp) <= 11000);
 
-        // Calcula as médias apenas se tivermos dados em ambos os períodos
         const mediaRecente = calcularMediaLatLon(pontosRecentes);
         const mediaAntiga = calcularMediaLatLon(pontosAntigos);
 
+        // Limpa camadas antigas
+        if(pontoMedioLayer) map.removeLayer(pontoMedioLayer);
+        if(vetorVelocidadeLayer) map.removeLayer(vetorVelocidadeLayer);
+        if(circuloRaio1Layer) map.removeLayer(circuloRaio1Layer);
+        if(circuloRaio2Layer) map.removeLayer(circuloRaio2Layer);
+
         if (mediaRecente) {
-            mediaRecenteEl.textContent = `${mediaRecente.lat.toFixed(6)}, ${mediaRecente.lon.toFixed(6)}`;
-        } else {
-            mediaRecenteEl.textContent = "Aguardando dados...";
-        }
-
-        if (mediaAntiga) {
-            mediaAntigaEl.textContent = `${mediaAntiga.lat.toFixed(6)}, ${mediaAntiga.lon.toFixed(6)}`;
-        } else {
-            mediaAntigaEl.textContent = "Aguardando dados...";
-        }
-
-        if (mediaRecente && mediaAntiga) {
-            const distanciaMetros = haversine(mediaAntiga, mediaRecente);
-            const tempoSegundos = 9;
-            const velocidadeKnots = (distanciaMetros / tempoSegundos) * 1.94384;
-            const direcaoGraus = calcularDirecao(mediaAntiga, mediaRecente);
+            mediaRecenteEl.textContent = `${mediaRecente.lat.toFixed(5)}, ${mediaRecente.lon.toFixed(5)}`;
             
-            velocidadeEl.textContent = `${velocidadeKnots.toFixed(2)} knots`;
-            direcaoEl.textContent = `${direcaoGraus.toFixed(1)}°`;
+            // Plota o ponto e os círculos
+            pontoMedioLayer = L.marker([mediaRecente.lat, mediaRecente.lon]).addTo(map);
+            circuloRaio1Layer = L.circle([mediaRecente.lat, mediaRecente.lon], { radius: raio1, color: '#1E90FF', fillOpacity: 0.1 }).addTo(map);
+            circuloRaio2Layer = L.circle([mediaRecente.lat, mediaRecente.lon], { radius: raio2, color: '#32CD32', fillOpacity: 0.1 }).addTo(map);
+
+            if (mediaAntiga) {
+                mediaAntigaEl.textContent = `${mediaAntiga.lat.toFixed(5)}, ${mediaAntiga.lon.toFixed(5)}`;
+                
+                const distanciaMetros = haversine(mediaAntiga, mediaRecente);
+                const velocidadeKnots = (distanciaMetros / 9) * 1.94384;
+                const direcaoGraus = calcularDirecao(mediaAntiga, mediaRecente);
+                
+                velocidadeEl.textContent = `${velocidadeKnots.toFixed(1)} kn`;
+                direcaoEl.textContent = `${direcaoGraus.toFixed(0)}°`;
+
+                // Plota o vetor
+                const distancia30s = (distanciaMetros / 9) * 30;
+                const pontoFinalVetor = calcularPontoDestino(mediaRecente.lat, mediaRecente.lon, distancia30s, direcaoGraus);
+                vetorVelocidadeLayer = L.polyline([
+                    [mediaRecente.lat, mediaRecente.lon],
+                    [pontoFinalVetor.latitude, pontoFinalVetor.longitude]
+                ], { color: '#FF4500', weight: 3, dashArray: '5, 5' }).addTo(map);
+
+            } else {
+                mediaAntigaEl.textContent = "--";
+                velocidadeEl.textContent = "--";
+                direcaoEl.textContent = "--";
+            }
         } else {
-            velocidadeEl.textContent = "Dados insuficientes";
-            direcaoEl.textContent = "Dados insuficientes";
+            mediaRecenteEl.textContent = "--";
         }
     }
 
-    function tratarErro(erro) {
-        let msg;
-        switch (erro.code) {
-            case erro.PERMISSION_DENIED:
-                msg = "Permissão para acessar a localização foi negada.";
-                break;
-            case erro.POSITION_UNAVAILABLE:
-                msg = "Informação de localização não está disponível.";
-                break;
-            case erro.TIMEOUT:
-                msg = "A solicitação de localização expirou.";
-                break;
-            default:
-                msg = "Ocorreu um erro desconhecido.";
-                break;
-        }
-        statusEl.textContent = msg;
-        statusEl.style.backgroundColor = '#cf6679'; // Cor de erro
-    }
-
+    function tratarErro(erro) { /* ...código da resposta anterior... */ }
+    
     // Inicia o monitoramento
     if ('geolocation' in navigator) {
         navigator.geolocation.watchPosition(processarPosicao, tratarErro, {
-            enableHighAccuracy: true, // Pede a maior precisão possível (usa o GPS)
-            maximumAge: 0,            // Não usar cache de posições antigas
-            timeout: 10000            // Tempo máximo para obter uma posição
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000
         });
     } else {
-        statusEl.textContent = "Geolocalização não é suportada por este navegador.";
+        statusEl.textContent = "Geolocalização não é suportada.";
         statusEl.style.backgroundColor = '#cf6679';
     }
+</script>
 
+<script>
+    function calcularMediaLatLon(pontos) { if (pontos.length === 0) return null; const soma = pontos.reduce((acc, p) => ({ lat: acc.lat + p.lat, lon: acc.lon + p.lon }), { lat: 0, lon: 0 }); return { lat: soma.lat / pontos.length, lon: soma.lon / pontos.length }; }
+    function haversine(ponto1, ponto2) { const R = 6371e3; const toRadians = (deg) => deg * (Math.PI / 180); const dLat = toRadians(ponto2.lat - ponto1.lat); const dLon = toRadians(ponto2.lon - ponto1.lon); const lat1 = toRadians(ponto1.lat); const lat2 = toRadians(ponto2.lat); const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c; }
+    function calcularDirecao(pontoInicial, pontoFinal) { const toRadians = (deg) => deg * (Math.PI / 180); const toDegrees = (rad) => rad * (180 / Math.PI); const lat1 = toRadians(pontoInicial.lat); const lon1 = toRadians(pontoInicial.lon); const lat2 = toRadians(pontoFinal.lat); const lon2 = toRadians(pontoFinal.lon); const dLon = lon2 - lon1; const y = Math.sin(dLon) * Math.cos(lat2); const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon); return (toDegrees(Math.atan2(y, x)) + 360) % 360; }
+    function tratarErro(erro) { let msg; switch (erro.code) { case erro.PERMISSION_DENIED: msg = "Permissão de localização negada."; break; case erro.POSITION_UNAVAILABLE: msg = "Localização indisponível."; break; case erro.TIMEOUT: msg = "Solicitação de localização expirou."; break; default: msg = "Erro desconhecido."; break; } statusEl.textContent = msg; statusEl.style.backgroundColor = '#cf6679'; }
 </script>
 
 </body>
