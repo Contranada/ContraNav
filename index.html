@@ -66,13 +66,6 @@
         const imageUrl = 'https://raw.githubusercontent.com/Contranada/ContraNav/main/1841.png';
         const imageBounds = [[-26.8667, -48.7000], [-26.9500, -48.5500]];
         
-        // <-- MUDANÇA AQUI: 1. Definição do ícone personalizado
-        const crosshairIcon = L.icon({
-            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e3/Crosshairs_Red.svg',
-            iconSize: [25, 25], // Tamanho do ícone em pixels
-            iconAnchor: [12.5, 12.5], // Ponto do ícone que corresponde à coordenada (centro)
-        });
-        
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
         const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' });
         const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, { opacity: 0.7, interactive: true })
@@ -109,9 +102,16 @@
             if (mediaRecente) {
                 mediaRecenteEl.textContent = `${mediaRecente.lat.toFixed(5)}, ${mediaRecente.lon.toFixed(5)}`;
                 
-                // <-- MUDANÇA AQUI: 2. Usando o ícone personalizado ao criar o marcador
-                pontoMedioLayer = L.marker([mediaRecente.lat, mediaRecente.lon], { icon: crosshairIcon }).addTo(map);
-                
+                // <-- MUDANÇA AQUI: Usando L.circleMarker para desenhar um círculo vermelho.
+                pontoMedioLayer = L.circleMarker([mediaRecente.lat, mediaRecente.lon], {
+                    radius: 7,
+                    fillColor: "#ff0000",
+                    color: "#cc0000",
+                    weight: 1,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).addTo(map);
+
                 circuloRaio1Layer = L.circle([mediaRecente.lat, mediaRecente.lon], { radius: raio1, color: '#1E90FF', fillOpacity: 0.1 }).addTo(map);
                 circuloRaio2Layer = L.circle([mediaRecente.lat, mediaRecente.lon], { radius: raio2, color: '#32CD32', fillOpacity: 0.1 }).addTo(map);
                 if (mediaAntiga) {
