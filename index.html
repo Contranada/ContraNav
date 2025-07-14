@@ -68,10 +68,10 @@
         
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
         const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' });
-        const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, { opacity: 0.7, interactive: true })
+        const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, { opacity: 0.6, interactive: true })
             .on('error', () => alert("ERRO: Não foi possível carregar sua imagem PNG. Verifique a URL no código."));
 
-        const map = L.map('map').setView([-26.908, -48.625], 6);
+        const map = L.map('map').setView([-26.908, -48.65], 6);
         cartoLayer.addTo(map);
         map.fitBounds(imageBounds);
 
@@ -122,7 +122,7 @@
                     velocidadeEl.textContent = `${velocidadeKnots.toFixed(1)} kn`;
                     direcaoEl.textContent = `${direcaoGraus.toFixed(0)}°`;
                     if (velocidadeKnots < 50 && velocidadeKnots > 0.1) {
-                        const distancia30s = (distanciaMetros / 9) * 30;
+                        const distancia30s = (distanciaMetros / 9) * 60;
                         const pontoFinalVetor = calcularPontoDestino(mediaRecente.lat, mediaRecente.lon, distancia30s, direcaoGraus);
                         vetorVelocidadeLayer = L.polyline([[mediaRecente.lat, mediaRecente.lon],[pontoFinalVetor.latitude, pontoFinalVetor.longitude]], { color: '#FF4500', weight: 3, dashArray: '5, 5' }).addTo(map);
                     }
