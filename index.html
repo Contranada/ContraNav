@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cálculo de Navegação</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: auto;
+        }
+        h2 {
+            border-bottom: 2px solid #0056b3;
+            padding-bottom: 5px;
+            color: #0056b3;
+        }
+        .data-point {
+            margin-bottom: 15px;
+        }
+        .label {
+            font-weight: bold;
+            color: #555;
+        }
+        .value {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #e9e9e9;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Análise de Navegação</h1>
+
+    <div class="data-point">
+        <h2>Média dos Últimos 3 Segundos</h2>
+        <span class="label">LAT/LONG Média:</span>
+        <span id="media_recente" class="value">Calculando...</span>
+    </div>
+
+    <div class="data-point">
+        <h2>Média de 9, 10 e 11 Segundos Atrás</h2>
+        <span class="label">LAT/LONG Média:</span>
+        <span id="media_antiga" class="value">Calculando...</span>
+    </div>
+
+    <hr>
+
+    <div class="data-point">
+        <h2>Resultados Calculados</h2>
+        <p>
+            <span class="label">Velocidade Média:</span>
+            <span id="velocidade" class="value">Calculando...</span>
+        </p>
+        <p>
+            <span class="label">Direção Média (Graus Verdadeiros):</span>
+            <span id="direcao" class="value">Calculando...</span>
+        </p>
+    </div>
+</div>
+
+<script>
+    // --- DADOS DE AMOSTRA ---
+    // Simula os dados de GPS recebidos a cada segundo.
+    // Em uma aplicação real, estes dados viriam de uma fonte externa (ex: API, WebSocket).
+    const agora = Date.now();
+    const pontosDeExemplo = [
+        { timestamp: agora - 11000, lat: -26.9150, lon: -48.6750 }, // 11s atrás
+        { timestamp: agora - 10000, lat: -26.9148, lon: -48.6748 }, // 10s atrás
+        { timestamp: agora - 9000,  lat: -26.9146, lon: -48.6746 }, // 9s atrás
+        // ... outros pontos intermediários
+        { timestamp: agora - 8000,  lat: -26.9144, lon: -48.6744 },
+        { timestamp: agora - 7000,  lat: -26.9142, lon: -48.6742 },
+        { timestamp: agora - 6000,  lat: -26.9140, lon: -48.6740 },
+        { timestamp: agora - 5000,  lat: -26.9138, lon: -48.6738 },
+        { timestamp: agora - 4000,  lat: -26.9136, lon: -48.6736 },
+        { timestamp: agora - 3000,  lat: -26.9134, lon: -48.6734 }, // 3s atrás
+        { timestamp: agora - 2000,  lat: -26.9132, lon: -48.6732 }, // 2s atrás
+        { timestamp: agora - 1000,  lat: -26.9130, lon: -48.6730 }, // 1s atrás
+    ];
+
+    /**
+     * Calcula a média de latitude e longitude de um array de pontos.
+     * @param {Array<Object>} pontos Array de objetos com {lat, lon}.
+     * @returns {Object|null} Objeto com {lat, lon} médias ou null se o array estiver vazio.
+     */
+    function calcularMediaLatLon(pontos) {
+        if (pontos.length === 0) return null;
+        const soma = pontos.reduce((acc, p) => ({ lat: acc.lat + p.lat, lon: acc.lon + p.lon }), { lat: 0, lon: 0 });
+        return {
+            lat: soma.lat / pontos.length,
+            lon: soma.lon / pontos.length
+        };
+    }
+
+    /**
+     * Calcula a distância entre dois pontos geográficos usando a fórmula de Haversine.
+     * @param {Object} ponto1 {lat, lon}
+     * @param {Object} ponto2 {lat, lon}
+     * @returns {number} Distância em metros.
+     */
+    function haversine(ponto1, ponto2) {
+        const R = 6371e3; // Raio da Terra em metros
+        const toRadians = (deg) => deg * (Math.PI / 180);
+
+        const lat1 = toRadians(ponto1.lat);
+        const lon1 = toRadians(ponto1.lon);
+        const lat2 = toRadians(ponto2.lat);
+        const lon2 = toRadians(ponto2.lon);
+
+        const dLat = lat2 - lat1;
+        const dLon = lon2 - lon1;
+
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    }
+
+    /**
+     * Calcula a direção (azimute) de um ponto inicial para um ponto final.
+     * @param {Object} pontoInicial {lat, lon}
+     * @param {Object} pontoFinal {lat, lon}
+     * @returns {number} Direção em graus verdadeiros (0-360).
+     */
+    function calcularDirecao(pontoInicial, pontoFinal) {
+        const toRadians = (deg) => deg * (Math.PI / 180);
+        const toDegrees = (rad) => rad * (180 / Math.PI);
+
+        const lat1 = toRadians(pontoInicial.lat);
+        const lon1 = toRadians(pontoInicial.lon);
+        const lat2 = toRadians(pontoFinal.lat);
+        const lon2 = toRadians(pontoFinal.lon);
+
+        const dLon = lon2 - lon1;
+
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        
+        let brng = toDegrees(Math.atan2(y, x));
+        return (brng + 360) % 360; // Normaliza para 0-360
+    }
+
+    // --- LÓGICA PRINCIPAL ---
+
+    const tempoAtual = Date.now();
+    const precisao = 500; // 0.5 segundos de margem
+
+    // Filtra os pontos dos últimos 3 segundos
+    const pontosRecentes = pontosDeExemplo.filter(p => tempoAtual - p.timestamp <= (3000 + precisao));
+
+    // Filtra os pontos de 9, 10 e 11 segundos atrás
+    const pontosAntigos = pontosDeExemplo.filter(p => {
+        const tempoAtras = tempoAtual - p.timestamp;
+        return tempoAtras >= (9000 - precisao) && tempoAtras <= (11000 + precisao);
+    });
+
+    // Calcula as médias
+    const mediaRecente = calcularMediaLatLon(pontosRecentes);
+    const mediaAntiga = calcularMediaLatLon(pontosAntigos);
+
+    if (mediaRecente && mediaAntiga) {
+        // Exibe as médias
+        document.getElementById('media_recente').textContent = `${mediaRecente.lat.toFixed(6)}, ${mediaRecente.lon.toFixed(6)}`;
+        document.getElementById('media_antiga').textContent = `${mediaAntiga.lat.toFixed(6)}, ${mediaAntiga.lon.toFixed(6)}`;
+
+        // Calcula a distância
+        const distanciaMetros = haversine(mediaAntiga, mediaRecente);
+
+        // O tempo entre o centro dos dois períodos é de 9 segundos
+        // (Centro do período recente: 1.5s atrás. Centro do período antigo: 10.5s atrás. Diferença ~9s)
+        const tempoSegundos = 9;
+        const velocidadeMs = distanciaMetros / tempoSegundos;
+        const velocidadeKnots = velocidadeMs * 1.94384; // 1 m/s = 1.94384 nós
+
+        // Calcula a direção
+        const direcaoGraus = calcularDirecao(mediaAntiga, mediaRecente);
+        
+        // Exibe os resultados
+        document.getElementById('velocidade').textContent = `${velocidadeKnots.toFixed(2)} knots`;
+        document.getElementById('direcao').textContent = `${direcaoGraus.toFixed(1)}°`;
+
+    } else {
+        // Exibe mensagem de erro se os dados não puderem ser processados
+        document.getElementById('velocidade').textContent = 'Dados insuficientes';
+        document.getElementById('direcao').textContent = 'Dados insuficientes';
+    }
+
+</script>
+
+</body>
+</html>
