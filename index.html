@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS Tracker [Diagnóstico v2]</title>
+    <title>GPS Tracker [v3 - Robusto]</title>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-eCaCGRE6XYWvgqn5NDlnAaG4nCnFagmMaKHdT+YQkLQ=" crossorigin=""/>
 
@@ -36,7 +36,10 @@
         #status { text-align: center; padding: 8px; background-color: #3700b3; color: white; font-weight: bold; margin-bottom: 10px; border-radius: 5px; }
         .controls { margin-top: 10px; padding-top: 10px; border-top: 1px solid #3a3a3a; }
         .slider-control { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
-        input[type="range"] { flex-grow: 1; }
+        /* CSS CORRIGIDO */
+        input[type="range"] {
+            flex-grow: 1;
+        }
         .leaflet-control-layers-toggle { background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/layers.png); }
     </style>
 </head>
@@ -77,25 +80,28 @@
         });
 
         const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, {
-            opacity: 0.7,
-            interactive: true
+            opacity: 0.7, interactive: true
         }).on('error', function () {
-            // **NOVO: Detector de erro no carregamento da imagem**
             console.error("ERRO: Não foi possível carregar a imagem da carta náutica. Verifique a URL e se o repositório é público.");
             alert("ERRO: Não foi possível carregar a imagem da carta náutica. Verifique a URL.");
         });
 
-        // **CORRIGIDO: O mapa agora inicia apenas com o mapa de ruas**
-        const map = L.map('map', {
-            layers: [osmLayer] // Inicia apenas com a camada OSM
-        });
-        
-        // **CORRIGIDO: Foco e zoom corretos para a área da sua imagem**
-        map.fitBounds(imageBounds);
+        // **NOVO: INICIALIZAÇÃO ROBUSTA DO MAPA**
+        // 1. Cria o mapa sem camadas iniciais.
+        const map = L.map('map');
 
+        // 2. Adiciona a camada de mapa de ruas.
+        osmLayer.addTo(map);
+
+        // 3. Adiciona o controle de camadas.
         const baseMaps = { "Mapa de Ruas": osmLayer };
         const overlayMaps = { "Carta Náutica (sua imagem)": cartaNauticaLayer };
         L.control.layers(baseMaps, overlayMaps).addTo(map);
+
+        // 4. SÓ DEPOIS que o mapa estiver pronto, ajusta a visão.
+        map.whenReady(function() {
+            this.fitBounds(imageBounds);
+        });
 
         // Camadas dinâmicas (marcadores, vetores, etc.)
         let pontoMedioLayer = null, vetorVelocidadeLayer = null, circuloRaio1Layer = null, circuloRaio2Layer = null;
@@ -103,8 +109,8 @@
         raio1Slider.addEventListener('input', (e) => { raio1 = parseInt(e.target.value); raio1ValueEl.textContent = `${raio1} m`; });
         raio2Slider.addEventListener('input', (e) => { raio2 = parseInt(e.target.value); raio2ValueEl.textContent = `${raio2} m`; });
 
+        // --- LÓGICA PRINCIPAL (sem alterações) ---
         function processarPosicao(posicao) {
-            // ... (A lógica de processamento aqui dentro não precisa de alterações) ...
             statusEl.textContent = `GPS Ativo. Precisão: ${posicao.coords.accuracy.toFixed(0)}m`;
             statusEl.style.backgroundColor = '#018786';
             const { latitude, longitude } = posicao.coords;
