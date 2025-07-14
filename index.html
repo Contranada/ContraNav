@@ -3,12 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>GPS Tracker [v4 - Final]</title>
+    <title>ContraNav GPS</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
-        html, body { height: 100%; margin: 0; padding: 0; background-color: #121212; color: #e0e0e0; display: flex; flex-direction: column; }
-        .info-panel { background-color: #1e1e1e; padding: 10px 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); z-index: 1000; border-bottom: 1px solid #444; }
-        #map { flex-grow: 1; background-color: #333; z-index: 0; }
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+        .info-panel {
+            background-color: #1e1e1e;
+            padding: 10px 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 1000;
+            border-bottom: 1px solid #444;
+        }
+        #map {
+            flex-grow: 1;
+            background-color: #333;
+            z-index: 0;
+        }
         .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .data-point { background-color: #2c2c2c; padding: 8px; border-radius: 6px; }
         .label { font-weight: bold; color: #03dac6; font-size: 0.8em; display: block; }
@@ -37,7 +55,10 @@
     <div id="map"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
+        // --- ELEMENTOS DO DOM ---
         const statusEl = document.getElementById('status'), mediaRecenteEl = document.getElementById('media_recente'), mediaAntigaEl = document.getElementById('media_antiga'), velocidadeEl = document.getElementById('velocidade'), direcaoEl = document.getElementById('direcao'), raio1Slider = document.getElementById('raio1'), raio2Slider = document.getElementById('raio2'), raio1ValueEl = document.getElementById('raio1-value'), raio2ValueEl = document.getElementById('raio2-value');
+
+        // --- ARMAZENAMENTO E CONFIGURAÇÕES ---
         let historicoPontos = [], raio1 = 50, raio2 = 100;
         const TEMPO_MAX_HISTORICO = 15000;
 
@@ -45,47 +66,30 @@
         const imageUrl = 'https://raw.githubusercontent.com/Contranada/ContraNav/main/1841.png';
         const imageBounds = [[-26.8667, -48.7000], [-26.9500, -48.5500]];
         
-        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
-        });
-        
-        // **NOVO: Servidor de mapa alternativo**
-        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        	attribution: '&copy; CartoDB'
-        });
-
-        const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, {
-            opacity: 0.7, interactive: true
-        }).on('error', function () {
-            alert("ERRO: Não foi possível carregar a imagem da carta náutica. Verifique a URL.");
-        });
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
+        const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' });
+        const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, { opacity: 0.7, interactive: true })
+            .on('error', () => alert("ERRO: Não foi possível carregar sua imagem PNG. Verifique a URL no código."));
 
         const map = L.map('map');
-
-        // Adiciona a camada CartoDB como padrão, pois parece mais confiável
         cartoLayer.addTo(map);
 
-        const baseMaps = {
-            "CartoDB (Plano B)": cartoLayer,
-            "OpenStreetMap": osmLayer
-        };
+        const baseMaps = { "Mapa Padrão (CartoDB)": cartoLayer, "Mapa Alternativo (OSM)": osmLayer };
         const overlayMaps = { "Carta Náutica": cartaNauticaLayer };
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
         map.whenReady(function() {
             this.fitBounds(imageBounds);
-            // **NOVO: Força o mapa a verificar seu tamanho e redesenhar**
             setTimeout(() => this.invalidateSize(), 200);
         });
 
         map.on('load', () => statusEl.textContent = 'Mapa carregado. Aguardando GPS...');
-        map.on('baselayerchange', () => map.invalidateSize());
 
+        // --- LÓGICA DO GPS E PLOTAGEM ---
         let pontoMedioLayer = null, vetorVelocidadeLayer = null, circuloRaio1Layer = null, circuloRaio2Layer = null;
         raio1Slider.addEventListener('input', (e) => { raio1 = parseInt(e.target.value); raio1ValueEl.textContent = `${raio1} m`; });
         raio2Slider.addEventListener('input', (e) => { raio2 = parseInt(e.target.value); raio2ValueEl.textContent = `${raio2} m`; });
         
-        // --- LÓGICA PRINCIPAL (sem alterações) ---
         function processarPosicao(posicao) {
             statusEl.textContent = `GPS Ativo. Precisão: ${posicao.coords.accuracy.toFixed(0)}m`;
             statusEl.style.backgroundColor = '#018786';
@@ -122,8 +126,27 @@
             } else { mediaRecenteEl.textContent = "--"; }
         }
 
-        // --- Funções Auxiliares (sem alterações) ---
-        if ('geolocation' in navigator) { navigator.geolocation.watchPosition(processarPosicao, tratarErro, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }); } else { statusEl.textContent = "Geolocalização não é suportada."; statusEl.style.backgroundColor = '#cf6679'; }
+        // --- FUNÇÕES AUXILIARES COMPLETAS ---
+        function tratarErro(erro) { let msg; switch (erro.code) { case erro.PERMISSION_DENIED: msg = "Permissão de localização negada."; break; case erro.POSITION_UNAVAILABLE: msg = "Localização indisponível."; break; case erro.TIMEOUT: msg = "Solicitação de localização expirou."; break; default: msg = "Erro desconhecido."; break; } statusEl.textContent = msg; statusEl.style.backgroundColor = '#cf6679'; }
+        if ('geolocation' in navigator) { navigator.geolocation.watchPosition(processarPosicao, tratarErro, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }); } else { statusEl.textContent = "Geolocalização não é suportada."; }
         function calcularMediaLatLon(pontos) { if (pontos.length === 0) return null; const soma = pontos.reduce((acc, p) => ({ lat: acc.lat + p.lat, lon: acc.lon + p.lon }), { lat: 0, lon: 0 }); return { lat: soma.lat / pontos.length, lon: soma.lon / pontos.length }; }
         function haversine(ponto1, ponto2) { const R = 6371e3; const toRadians = (deg) => deg * (Math.PI / 180); const dLat = toRadians(ponto2.lat - ponto1.lat); const dLon = toRadians(ponto2.lon - ponto1.lon); const lat1 = toRadians(ponto1.lat); const lat2 = toRadians(ponto2.lat); const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); return R * c; }
-        function calcularDirecao(pontoInicial, pontoFinal) { const toRadians = (deg) => deg * (Math.PI / 180); const toDegrees = (rad) => rad * (180 / Math.PI); const lat1 = toRadians(pontoInicial.lat); const lon1 = toRadians(pontoInicial.lon); const lat2 = toRadians(pontoFinal.lat); const lon2 = toRadians(pontoFinal.lon); const dLon = lon2 - lon1; const y = Math.sin(dLon) * Math.cos(lat2); const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon); return (toDegrees(Math.at
+        function calcularPontoDestino(lat, lon, dist, brng) { const R = 6371e3; const d = dist; const lat1 = lat * Math.PI / 180; const lon1 = lon * Math.PI / 180; const brngRad = brng * Math.PI / 180; const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d / R) + Math.cos(lat1) * Math.sin(d / R) * Math.cos(brngRad)); const lon2 = lon1 + Math.atan2(Math.sin(brngRad) * Math.sin(d / R) * Math.cos(lat1), Math.cos(d / R) - Math.sin(lat1) * Math.sin(lat2)); return { latitude: lat2 * 180 / Math.PI, longitude: lon2 * 180 / Math.PI }; }
+        
+        // **FUNÇÃO CORRIGIDA**
+        function calcularDirecao(pontoInicial, pontoFinal) {
+            const toRadians = (deg) => deg * (Math.PI / 180);
+            const toDegrees = (rad) => rad * (180 / Math.PI);
+            const lat1 = toRadians(pontoInicial.lat);
+            const lon1 = toRadians(pontoInicial.lon);
+            const lat2 = toRadians(pontoFinal.lat);
+            const lon2 = toRadians(pontoFinal.lon);
+            const dLon = lon2 - lon1;
+            const y = Math.sin(dLon) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            const brng = toDegrees(Math.atan2(y, x));
+            return (brng + 360) % 360;
+        }
+    </script>
+</body>
+</html>
