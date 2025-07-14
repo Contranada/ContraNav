@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>ContraNav GPS [v5]</title>
+    <title>ContraNav GPS</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
     <style>
         html, body {
@@ -66,21 +66,27 @@
         const imageUrl = 'https://raw.githubusercontent.com/Contranada/ContraNav/main/1841.png';
         const imageBounds = [[-26.8667, -48.7000], [-26.9500, -48.5500]];
         
+        // <-- MUDANÇA AQUI: 1. Definição do ícone personalizado
+        const crosshairIcon = L.icon({
+            iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/e/e3/Crosshairs_Red.svg',
+            iconSize: [25, 25], // Tamanho do ícone em pixels
+            iconAnchor: [12.5, 12.5], // Ponto do ícone que corresponde à coordenada (centro)
+        });
+        
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' });
         const cartoLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' });
         const cartaNauticaLayer = L.imageOverlay(imageUrl, imageBounds, { opacity: 0.7, interactive: true })
             .on('error', () => alert("ERRO: Não foi possível carregar sua imagem PNG. Verifique a URL no código."));
 
-        // **INICIALIZAÇÃO CORRIGIDA E DIRETA**
-        const map = L.map('map').setView([-26.908, -48.625], 13); // 1. Força uma visão inicial
-        cartoLayer.addTo(map);                                    // 2. Adiciona a camada base
-        map.fitBounds(imageBounds);                               // 3. Ajusta o zoom para sua imagem
+        const map = L.map('map').setView([-26.908, -48.625], 13);
+        cartoLayer.addTo(map);
+        map.fitBounds(imageBounds);
 
         const baseMaps = { "Mapa Padrão (CartoDB)": cartoLayer, "Mapa Alternativo (OSM)": osmLayer };
         const overlayMaps = { "Carta Náutica": cartaNauticaLayer };
         L.control.layers(baseMaps, overlayMaps).addTo(map);
 
-        // --- LÓGICA DO GPS E PLOTAGEM (sem alterações) ---
+        // --- LÓGICA DO GPS E PLOTAGEM ---
         let pontoMedioLayer = null, vetorVelocidadeLayer = null, circuloRaio1Layer = null, circuloRaio2Layer = null;
         raio1Slider.addEventListener('input', (e) => { raio1 = parseInt(e.target.value); raio1ValueEl.textContent = `${raio1} m`; });
         raio2Slider.addEventListener('input', (e) => { raio2 = parseInt(e.target.value); raio2ValueEl.textContent = `${raio2} m`; });
@@ -102,7 +108,10 @@
             if(circuloRaio2Layer) map.removeLayer(circuloRaio2Layer);
             if (mediaRecente) {
                 mediaRecenteEl.textContent = `${mediaRecente.lat.toFixed(5)}, ${mediaRecente.lon.toFixed(5)}`;
-                pontoMedioLayer = L.marker([mediaRecente.lat, mediaRecente.lon]).addTo(map);
+                
+                // <-- MUDANÇA AQUI: 2. Usando o ícone personalizado ao criar o marcador
+                pontoMedioLayer = L.marker([mediaRecente.lat, mediaRecente.lon], { icon: crosshairIcon }).addTo(map);
+                
                 circuloRaio1Layer = L.circle([mediaRecente.lat, mediaRecente.lon], { radius: raio1, color: '#1E90FF', fillOpacity: 0.1 }).addTo(map);
                 circuloRaio2Layer = L.circle([mediaRecente.lat, mediaRecente.lon], { radius: raio2, color: '#32CD32', fillOpacity: 0.1 }).addTo(map);
                 if (mediaAntiga) {
@@ -121,7 +130,7 @@
             } else { mediaRecenteEl.textContent = "--"; }
         }
 
-        // --- FUNÇÕES AUXILIARES (sem alterações) ---
+        // --- FUNÇÕES AUXILIARES ---
         function tratarErro(erro) { let msg; switch (erro.code) { case erro.PERMISSION_DENIED: msg = "Permissão de localização negada."; break; case erro.POSITION_UNAVAILABLE: msg = "Localização indisponível."; break; case erro.TIMEOUT: msg = "Solicitação de localização expirou."; break; default: msg = "Erro desconhecido."; break; } statusEl.textContent = msg; statusEl.style.backgroundColor = '#cf6679'; }
         if ('geolocation' in navigator) { navigator.geolocation.watchPosition(processarPosicao, tratarErro, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }); } else { statusEl.textContent = "Geolocalização não é suportada."; }
         function calcularMediaLatLon(pontos) { if (pontos.length === 0) return null; const soma = pontos.reduce((acc, p) => ({ lat: acc.lat + p.lat, lon: acc.lon + p.lon }), { lat: 0, lon: 0 }); return { lat: soma.lat / pontos.length, lon: soma.lon / pontos.length }; }
